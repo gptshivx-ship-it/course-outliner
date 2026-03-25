@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #09090b; --fg: #fafafa; --accent: #d97706; --accent-light: #f59e0b;
+  --card: #18181b; --border: #27272a; --muted: #a1a1aa;
+}
+body { background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, sans-serif; }
+
+.gradient-text {
+  background: linear-gradient(135deg, #f59e0b, #f97316, #f59e0b);
+  background-size: 200% 200%;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; animation: gradient 3s ease infinite;
+}
+@keyframes gradient { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
+
+.btn-primary {
+  background: linear-gradient(135deg, #d97706, #ea580c);
+  color: white; padding: 12px 28px; border-radius: 8px; font-weight: 600;
+  border: none; cursor: pointer; transition: all 0.2s;
+}
+.btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+textarea, select, input {
+  background: var(--bg); border: 1px solid var(--border); color: var(--fg);
+  border-radius: 8px; padding: 10px 14px; width: 100%; outline: none; transition: border-color 0.2s;
+}
+textarea:focus, select:focus, input:focus { border-color: var(--accent-light); }
+
+.module-card {
+  background: linear-gradient(135deg, rgba(217,119,6,0.06), rgba(249,115,22,0.06));
+  border: 1px solid rgba(245,158,11,0.2); border-radius: 12px; padding: 20px;
+}
+
+.copy-btn {
+  background: var(--accent); color: white; border: none; border-radius: 6px;
+  padding: 6px 12px; cursor: pointer; font-size: 13px;
+}
+.copy-btn:hover { background: var(--accent-light); }
+
+.loading-dots::after { content:''; animation: dots 1.5s steps(4,end) infinite; }
+@keyframes dots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
+@keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+.fade-in { animation: fadeIn 0.5s ease; }
