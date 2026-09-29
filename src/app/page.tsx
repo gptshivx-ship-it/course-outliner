@@ -199,7 +199,10 @@ export default function Home() {
       </section>
 
       <footer className="max-w-4xl mx-auto px-4 py-8 text-center text-sm" style={{ color: "var(--muted)", borderTop: "1px solid var(--border)" }}>
-        <p>CourseForge &mdash; AI-powered course outline generator for creators and educators.</p>
+        <p>CourseForge &mdash; AI-powered course outline generator for creators and educators, by ShivX Labs.</p>
+        <p className="mt-1">
+          Support: <a href="mailto:gptshivx@gmail.com">gptshivx@gmail.com</a> &middot; Card statements show SHIVX LABS.
+        </p>
       </footer>
     </main>
   );
