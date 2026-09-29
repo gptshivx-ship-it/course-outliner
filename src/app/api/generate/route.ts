@@ -1,4 +1,5 @@
 import { generateText, LlmBusy } from "@/lib/llm";
+import { acceptOutline } from "@/lib/accept";
 import { NextRequest, NextResponse } from "next/server";
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -41,7 +42,7 @@ CREATE A STRUCTURED COURSE OUTLINE WITH:
 Format clearly with headers and markdown.`;
 
   try {
-    const text = await generateText(prompt);
+    const text = await generateText(prompt, { accept: acceptOutline });
     increment(ip);
     return NextResponse.json({ outline: text, remaining: FREE_LIMIT - count - 1 });
   } catch (err) {
