@@ -201,6 +201,20 @@ export function ipKey(ip: string, salt: string, product: string, nowMs: number):
   return `rl:${product}:${h}:${day}`;
 }
 
+// Check the free allowance WITHOUT spending it: the route counts a use only after a successful generation, so a
+// failed generation never eats one of the user's free uses.
+export async function peekFree(ip: string, salt: string, d: Deps): Promise<{ allowed: boolean; remaining: number; reason: string }> {
+  const key = ipKey(ip, salt, d.product, d.now());
+  const limit = d.freeLimit ?? FREE_LIMIT;
+  try {
+    const n = Number((await d.kv.get(key)) ?? "0");
+    if (n >= limit) return { allowed: false, remaining: 0, reason: "daily_limit" };
+    return { allowed: true, remaining: limit - n, reason: "" };
+  } catch {
+    return { allowed: false, remaining: 0, reason: "kv_unavailable" };
+  }
+}
+
 export async function consumeFree(ip: string, salt: string, d: Deps): Promise<{ allowed: boolean; remaining: number; reason: string }> {
   const key = ipKey(ip, salt, d.product, d.now());
   try {

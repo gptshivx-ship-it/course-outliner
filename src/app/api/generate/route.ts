@@ -1,6 +1,6 @@
 import { generateText } from "@/lib/llm";
 import { buildDeps, ipSalt, NotConfigured } from "@/lib/deps";
-import { checkPro, consumeFree } from "@/lib/entitlement";
+import { checkPro, consumeFree, peekFree } from "@/lib/entitlement";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -19,12 +19,12 @@ export async function POST(request: NextRequest) {
 
   const pro = await checkPro(request.headers.get("authorization"), deps);
   let remaining: number | null = null;
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   if (!pro.pro) {
     if (pro.reason === "kv_unavailable") {
       return NextResponse.json({ error: "Service busy - please try again shortly." }, { status: 503 });
     }
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-    const free = await consumeFree(ip, ipSalt(), deps);
+    const free = await peekFree(ip, ipSalt(), deps);
     if (!free.allowed) {
       if (free.reason === "kv_unavailable") {
         return NextResponse.json({ error: "Service busy - please try again shortly." }, { status: 503 });
@@ -62,6 +62,7 @@ Format clearly with headers and markdown.`;
 
   try {
     const text = await generateText(prompt);
+    if (!pro.pro) remaining = (await consumeFree(ip, ipSalt(), deps)).remaining; // count only a success
     return NextResponse.json({ outline: text, remaining, pro: pro.pro });
   } catch (err) {
     console.error("Generation error:", err);
