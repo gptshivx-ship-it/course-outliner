@@ -275,3 +275,13 @@ describe("two apps sharing one KV (one Upstash database, both webhook endpoints 
     expect(await kv.get("sess:cs_shared")).not.toBeNull();
   });
 });
+
+describe("public identity (operator rule 2026-09-29)", () => {
+  const page = readFileSync(join(__dirname, "..", "src", "app", "page.tsx"), "utf8");
+  it("names ShivX Labs, the SHIVX LABS statement descriptor and the public support address, never the personal one", () => {
+    expect(page).toMatch(/ShivX Labs/);
+    expect(page).toMatch(/SHIVX LABS/);
+    expect(page).toMatch(/gptshivx@gmail\.com/);
+    expect(page).not.toMatch(/ojayshah/i);
+  });
+});
