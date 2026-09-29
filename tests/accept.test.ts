@@ -14,6 +14,13 @@ describe("acceptOutline", () => {
       "# Intro to SQL\nModule 1: SELECT"
     );
   });
+  it("keeps a bold title line that comes before the first heading (measured: prod cut the course title)", () => {
+    const t = "**Course Title:** Photography Basics\n\n### Course Description\nModule 1: Light";
+    expect(acceptOutline(t)).toBe(t);
+  });
+  it("does not treat a bold phrase inside a numbered thinking line as the start", () => {
+    expect(acceptOutline("Here's a thinking process:\n1.  **Analyze the Request:**\n\n# Title\nModule 1")).toBe("# Title\nModule 1");
+  });
   it("rejects an answer with no heading (all thinking)", () => {
     expect(acceptOutline("We need to produce a course outline with modules...")).toBeNull();
   });
