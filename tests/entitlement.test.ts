@@ -285,3 +285,28 @@ describe("public identity (operator rule 2026-09-29)", () => {
     expect(page).not.toMatch(/ojayshah/i);
   });
 });
+
+describe("fair free tier: a failed generation must not spend a free use", () => {
+  it("peekFree checks the limit without consuming; only consumeFree counts", async () => {
+    const d = deps();
+    const { peekFree } = await import("../src/lib/entitlement");
+    for (let i = 0; i < 10; i++) expect((await peekFree("198.51.100.9", "salt", d)).allowed).toBe(true);
+    const limit = d.freeLimit ?? 5;
+    for (let i = 0; i < limit; i++) await consumeFree("198.51.100.9", "salt", d);
+    const p = await peekFree("198.51.100.9", "salt", d);
+    expect(p.allowed).toBe(false);
+    expect(p.reason).toBe("daily_limit");
+  });
+  it("peekFree fails closed when KV is down", async () => {
+    const { peekFree } = await import("../src/lib/entitlement");
+    const broken = { ...memoryKV(), get: async () => { throw new Error("down"); } };
+    const p = await peekFree("198.51.100.9", "salt", deps({ kv: broken as any }));
+    expect(p.allowed).toBe(false);
+    expect(p.reason).toBe("kv_unavailable");
+  });
+  it("the generate route only counts a free use AFTER a successful generation", () => {
+    const route = readFileSync(join(__dirname, "..", "src", "app", "api", "generate", "route.ts"), "utf8");
+    expect(route).toMatch(/peekFree\(/);
+    expect(route.indexOf("consumeFree(")).toBeGreaterThan(route.indexOf("generateText("));
+  });
+});
