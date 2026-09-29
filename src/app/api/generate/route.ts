@@ -1,4 +1,4 @@
-import { generateText } from "@/lib/llm";
+import { generateText, LlmBusy } from "@/lib/llm";
 import { buildDeps, ipSalt, NotConfigured } from "@/lib/deps";
 import { checkPro, consumeFree, peekFree } from "@/lib/entitlement";
 import { NextRequest, NextResponse } from "next/server";
@@ -66,6 +66,10 @@ Format clearly with headers and markdown.`;
     return NextResponse.json({ outline: text, remaining, pro: pro.pro });
   } catch (err) {
     console.error("Generation error:", err);
+    if (err instanceof LlmBusy) {
+      // The free AI capacity is spent or saturated right now: say so plainly (no free use was counted).
+      return NextResponse.json({ error: "The AI service is busy right now - please try again in a few minutes.", busy: true }, { status: 503 });
+    }
     return NextResponse.json({ error: "Failed to generate. Try again." }, { status: 500 });
   }
 }
