@@ -262,3 +262,16 @@ describe("CourseForge free tier", () => {
     expect((await consumeFree("198.51.100.7", "salt", d)).allowed).toBe(false);
   });
 });
+
+describe("two apps sharing one KV (one Upstash database, both webhook endpoints get every event)", () => {
+  it("an event the OTHER product's endpoint already processed still mints here", async () => {
+    const kv = memoryKV();
+    const other = (PRODUCT as string) === "bioforge_pro" ? "courseforge_pro" : "bioforge_pro";
+    const mine = deps({ kv });
+    const theirs = deps({ kv, product: other });
+    const ev = paidEvent("evt_shared", "cs_shared", "pi_shared", "paid", PRODUCT);
+    expect((await handleWebhook(ev, "good-signature", theirs)).status).toBe(200); // other app sees it first: skips
+    expect((await handleWebhook(ev, "good-signature", mine)).status).toBe(200);
+    expect(await kv.get("sess:cs_shared")).not.toBeNull();
+  });
+});
