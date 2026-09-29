@@ -1,4 +1,5 @@
 import { generateText, LlmBusy } from "@/lib/llm";
+import { acceptOutline } from "@/lib/accept";
 import { buildDeps, ipSalt, NotConfigured } from "@/lib/deps";
 import { checkPro, consumeFree, peekFree } from "@/lib/entitlement";
 import { NextRequest, NextResponse } from "next/server";
@@ -61,7 +62,7 @@ CREATE A STRUCTURED COURSE OUTLINE WITH:
 Format clearly with headers and markdown.`;
 
   try {
-    const text = await generateText(prompt);
+    const text = await generateText(prompt, { accept: acceptOutline });
     if (!pro.pro) remaining = (await consumeFree(ip, ipSalt(), deps)).remaining; // count only a success
     return NextResponse.json({ outline: text, remaining, pro: pro.pro });
   } catch (err) {

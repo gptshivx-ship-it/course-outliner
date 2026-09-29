@@ -23,6 +23,22 @@ describe("llm", () => {
     expect(FREE_MODELS.length).toBeGreaterThanOrEqual(2);
     for (const m of FREE_MODELS) expect(m.endsWith(":free")).toBe(true);
   });
+  it("the chain holds no nvidia/ model (measured 2026-09-29: they write their reasoning into the answer text)", () => {
+    for (const m of FREE_MODELS) expect(m.startsWith("nvidia/")).toBe(false);
+  });
+  it("an answer the caller's check rejects moves to the next model; the check's cleaned text is returned", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "o");
+    const f = vi.fn().mockResolvedValueOnce(ok("Here's a thinking process: ...")).mockResolvedValueOnce(ok("intro OPTION 1: a"));
+    vi.stubGlobal("fetch", f);
+    const accept = (t: string) => (t.includes("OPTION 1") ? t.slice(t.indexOf("OPTION 1")) : null);
+    expect(await generateText("p", { accept })).toBe("OPTION 1: a");
+    expect(f).toHaveBeenCalledTimes(2);
+  });
+  it("every answer rejected by the check is busy, not a crash", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "o");
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => ok("thinking...")));
+    await expect(generateText("p", { accept: () => null })).rejects.toBeInstanceOf(LlmBusy);
+  });
   it("uses the first OpenRouter :free model when it answers", async () => {
     vi.stubEnv("OPENROUTER_API_KEY", "o");
     const f = vi.fn().mockResolvedValue(ok("hi"));
@@ -46,10 +62,12 @@ describe("llm", () => {
   });
   it("an upstream 429 or a 5xx moves to the next :free model", async () => {
     vi.stubEnv("OPENROUTER_API_KEY", "o");
-    const f = vi.fn().mockResolvedValueOnce(upstream429()).mockResolvedValueOnce(err(502)).mockResolvedValueOnce(ok("third"));
-    vi.stubGlobal("fetch", f);
-    expect(await generateText("p")).toBe("third");
-    expect([model(f, 0), model(f, 1), model(f, 2)]).toEqual(FREE_MODELS.slice(0, 3));
+    for (const first of [upstream429, () => err(502)]) {
+      const f = vi.fn().mockResolvedValueOnce(first()).mockResolvedValueOnce(ok("second"));
+      vi.stubGlobal("fetch", f);
+      expect(await generateText("p")).toBe("second");
+      expect([model(f, 0), model(f, 1)]).toEqual(FREE_MODELS.slice(0, 2));
+    }
   });
   it("the account's daily free cap stops the chain and throws LlmBusy", async () => {
     vi.stubEnv("OPENROUTER_API_KEY", "o");

@@ -3,13 +3,10 @@
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
-// Each verified present AND answering on OpenRouter 2026-09-29. The free list churns, so OPENROUTER_FREE_MODEL may put
-// one model first - but ONLY a ":free" model: anything else is ignored (the no-spend guarantee).
-export const FREE_MODELS = [
-  "nvidia/nemotron-3-super-120b-a12b:free",
-  "google/gemma-4-26b-a4b-it:free",
-  "google/gemma-4-31b-it:free",
-];
+// Each verified present, answering, and CLEAN on the apps' real prompts 2026-09-29. nvidia/ models are excluded: they
+// wrote their reasoning into the answer text even with reasoning.exclude. The free list churns, so OPENROUTER_FREE_MODEL
+// may put one model first - but ONLY a ":free" model: anything else is ignored (the no-spend guarantee).
+export const FREE_MODELS = ["google/gemma-4-31b-it:free", "google/gemma-4-26b-a4b-it:free"];
 
 // Every model is at capacity, or the account's daily free cap is spent: the service is busy, not broken.
 export class LlmBusy extends Error {}
@@ -19,7 +16,8 @@ export function modelChain(): string[] {
   return o && o.endsWith(":free") ? [o, ...FREE_MODELS.filter((m) => m !== o)] : [...FREE_MODELS];
 }
 
-type Opts = { temperature?: number; maxTokens?: number };
+// accept: the caller's output check - the cleaned text, or null to reject the answer and try the next model.
+type Opts = { temperature?: number; maxTokens?: number; accept?: (text: string) => string | null };
 
 async function call(url: string, key: string, model: string, prompt: string, o?: Opts) {
   return fetch(url, {
@@ -47,7 +45,9 @@ async function attempt(url: string, key: string, model: string, prompt: string, 
   if (res.ok) {
     const data = await res.json().catch(() => ({}));
     const text: string = data?.choices?.[0]?.message?.content || "";
-    return text ? { text } : { why: `${model}: empty completion`, capacity: true, cap: false };
+    if (!text) return { why: `${model}: empty completion`, capacity: true, cap: false };
+    const kept = o?.accept ? o.accept(text) : text;
+    return kept ? { text: kept } : { why: `${model}: answer failed the output check`, capacity: true, cap: false };
   }
   const why = await reason(res);
   const cap = res.status === 429 && /per-day|per day/i.test(why);
