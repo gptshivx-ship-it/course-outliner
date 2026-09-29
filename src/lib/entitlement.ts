@@ -113,7 +113,9 @@ export async function handleWebhook(raw: string, sig: string | null, d: Deps): P
     return { status: 400, body: { error: "invalid signature" } };
   }
   try {
-    if (await d.kv.get(`evt:${event.id}`)) return { status: 200, body: { ok: true, duplicate: true } };
+    // Stripe delivers every event to BOTH apps' endpoints and they share one KV: dedupe per product, or the app
+    // that sees an event first (and skips it as not its product) would mark it done for the other one too.
+    if (await d.kv.get(`evt:${d.product}:${event.id}`)) return { status: 200, body: { ok: true, duplicate: true } };
     const obj = event?.data?.object ?? {};
     if (event.type === "checkout.session.completed") {
       if (obj.payment_status === "paid" && obj?.metadata?.shivx_product === d.product && !(await d.kv.get(`sess:${obj.id}`))) {
@@ -143,7 +145,7 @@ export async function handleWebhook(raw: string, sig: string | null, d: Deps): P
         await d.kv.set(`lic:${lid}`, JSON.stringify({ ...rec, status: "revoked", revoked_reason: "refunded" }));
       }
     }
-    await d.kv.set(`evt:${event.id}`, "1");
+    await d.kv.set(`evt:${d.product}:${event.id}`, "1");
     return { status: 200, body: { ok: true } };
   } catch {
     // Not acknowledged: Stripe retries the event, so nothing is lost while KV is down.

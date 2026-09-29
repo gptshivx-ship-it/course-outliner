@@ -9,14 +9,20 @@ const REQUIRED = [
   "LICENSE_SIGNING_SECRET",
   "COURSEFORGE_PRICE_ID",
   "IP_HASH_SALT",
-  "UPSTASH_REDIS_REST_URL",
-  "UPSTASH_REDIS_REST_TOKEN",
 ] as const;
+// The Vercel Marketplace Upstash integration sets KV_REST_API_URL/TOKEN; @upstash/redis reads either name.
+const EITHER: [string, string][] = [
+  ["UPSTASH_REDIS_REST_URL", "KV_REST_API_URL"],
+  ["UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN"],
+];
 
 export class NotConfigured extends Error {}
 
 export function missingConfig(): string[] {
-  return REQUIRED.filter((k) => !process.env[k]);
+  return [
+    ...REQUIRED.filter((k) => !process.env[k]),
+    ...EITHER.filter(([a, b]) => !process.env[a] && !process.env[b]).map(([a, b]) => `${a}|${b}`),
+  ];
 }
 
 export function buildDeps(): Deps {
