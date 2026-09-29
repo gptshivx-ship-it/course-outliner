@@ -16,15 +16,41 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [error, setError] = useState("");
+  const [buying, setBuying] = useState(false);
+
+  async function startCheckout() {
+    setBuying(true);
+    setError("");
+    try {
+      const res = await fetch("/api/checkout", { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      setError(data.error || "Checkout is unavailable right now.");
+    } catch {
+      setError("Checkout is unavailable right now.");
+    } finally {
+      setBuying(false);
+    }
+  }
   const [copied, setCopied] = useState(false);
 
   async function handleGenerate() {
     if (!topic) return;
     setLoading(true); setError(""); setResult("");
     try {
+      let licence = "";
+      try {
+        licence = localStorage.getItem("courseforge_licence") || "";
+      } catch {}
       const res = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(licence ? { Authorization: `Licence ${licence}` } : {}),
+        },
         body: JSON.stringify({ topic, audience, level, duration, format }),
       });
       const data = await res.json();
@@ -162,14 +188,12 @@ export default function Home() {
           <div className="card p-6" style={{ border: "1px solid rgba(245,158,11,0.5)" }}>
             <div className="flex items-center justify-between mb-1">
               <h3 className="font-semibold text-lg">Pro</h3>
-              <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(217,119,6,0.3)", color: "#fbbf24" }}>Best Value</span>
             </div>
             <p className="text-3xl font-bold mb-4">$19<span className="text-sm font-normal" style={{ color: "var(--muted)" }}>/mo</span></p>
             <ul className="space-y-2 text-sm mb-6" style={{ color: "var(--muted)" }}>
-              <li>&#10003; Unlimited outlines</li><li>&#10003; Curriculum advisor chat</li><li>&#10003; Slide deck generation</li>
-              <li>&#10003; Student worksheet templates</li><li>&#10003; Market research report</li>
+              <li>&#10003; Unlimited outlines</li><li>&#10003; All course formats</li><li>&#10003; Markdown export</li>
             </ul>
-            <a href="#" className="btn-primary block w-full text-center">Get Pro</a>
+            <button onClick={startCheckout} disabled={buying} className="btn-primary block w-full text-center">{buying ? "Opening checkout…" : "Get Pro"}</button>
           </div>
         </div>
       </section>
