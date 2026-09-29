@@ -32,6 +32,18 @@ describe("llm", () => {
     expect(f.mock.calls[0][0]).toContain("openrouter.ai");
     expect(model(f, 0)).toBe(FREE_MODELS[0]);
   });
+  it("OpenRouter calls exclude the model's reasoning from the answer; the Groq call does not send the field", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "o");
+    vi.stubEnv("GROQ_API_KEY", "g");
+    const f = vi.fn().mockImplementation(async (url: string) => (url.includes("groq") ? ok("groq") : upstream429()));
+    vi.stubGlobal("fetch", f);
+    await generateText("p");
+    for (const c of f.mock.calls) {
+      const body = JSON.parse(c[1].body);
+      if (String(c[0]).includes("openrouter.ai")) expect(body.reasoning).toEqual({ exclude: true });
+      else expect(body.reasoning).toBeUndefined();
+    }
+  });
   it("an upstream 429 or a 5xx moves to the next :free model", async () => {
     vi.stubEnv("OPENROUTER_API_KEY", "o");
     const f = vi.fn().mockResolvedValueOnce(upstream429()).mockResolvedValueOnce(err(502)).mockResolvedValueOnce(ok("third"));

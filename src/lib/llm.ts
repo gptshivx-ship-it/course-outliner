@@ -30,6 +30,8 @@ async function call(url: string, key: string, model: string, prompt: string, o?:
       messages: [{ role: "user", content: prompt }],
       temperature: o?.temperature ?? 0.7,
       max_tokens: o?.maxTokens ?? 2048,
+      // Reasoning models (nemotron) otherwise put their thinking in the answer text - a customer must never see it.
+      ...(url === OPENROUTER_URL ? { reasoning: { exclude: true } } : {}),
     }),
   });
 }
