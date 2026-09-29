@@ -6,7 +6,12 @@ const GROQ_MODEL = "llama-3.3-70b-versatile";
 // Each verified present, answering, and CLEAN on the apps' real prompts 2026-09-29. nvidia/ models are excluded: they
 // wrote their reasoning into the answer text even with reasoning.exclude. The free list churns, so OPENROUTER_FREE_MODEL
 // may put one model first - but ONLY a ":free" model: anything else is ignored (the no-spend guarantee).
-export const FREE_MODELS = ["google/gemma-4-31b-it:free", "google/gemma-4-26b-a4b-it:free"];
+// ling (Novita) was added 2026-09-29 for upstream-pool diversity: both gemma models share Google AI Studio's flapping pool.
+export const FREE_MODELS = [
+  "google/gemma-4-31b-it:free",
+  "inclusionai/ling-3.0-flash-sante:free",
+  "google/gemma-4-26b-a4b-it:free",
+];
 
 // Every model is at capacity, or the account's daily free cap is spent: the service is busy, not broken.
 export class LlmBusy extends Error {}
