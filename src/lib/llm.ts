@@ -1,34 +1,81 @@
-// Shared LLM utility — Groq API (OpenAI-compatible)
-// Copy this file into each product's src/lib/llm.ts
-
+// LLM utility - NO SPEND. OpenRouter ":free" models are PRIMARY, tried in a fixed order; Groq's free tier is the last
+// resort, only when GROQ_API_KEY exists. Never a paid model. Keys come from env only (this repo is public).
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+const GROQ_MODEL = "llama-3.3-70b-versatile";
+// Each verified present AND answering on OpenRouter 2026-09-29. The free list churns, so OPENROUTER_FREE_MODEL may put
+// one model first - but ONLY a ":free" model: anything else is ignored (the no-spend guarantee).
+export const FREE_MODELS = [
+  "nvidia/nemotron-3-super-120b-a12b:free",
+  "google/gemma-4-26b-a4b-it:free",
+  "google/gemma-4-31b-it:free",
+];
 
-export async function generateText(
-  prompt: string,
-  options?: { temperature?: number; maxTokens?: number; model?: string }
-): Promise<string> {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) throw new Error("GROQ_API_KEY not set");
+// Every model is at capacity, or the account's daily free cap is spent: the service is busy, not broken.
+export class LlmBusy extends Error {}
 
-  const res = await fetch(GROQ_API_URL, {
+export function modelChain(): string[] {
+  const o = process.env.OPENROUTER_FREE_MODEL;
+  return o && o.endsWith(":free") ? [o, ...FREE_MODELS.filter((m) => m !== o)] : [...FREE_MODELS];
+}
+
+type Opts = { temperature?: number; maxTokens?: number };
+
+async function call(url: string, key: string, model: string, prompt: string, o?: Opts) {
+  return fetch(url, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: options?.model || "llama-3.3-70b-versatile",
+      model,
       messages: [{ role: "user", content: prompt }],
-      temperature: options?.temperature ?? 0.7,
-      max_tokens: options?.maxTokens ?? 2048,
+      temperature: o?.temperature ?? 0.7,
+      max_tokens: o?.maxTokens ?? 2048,
     }),
   });
+}
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `Groq API error: ${res.status}`);
+async function reason(res: Response): Promise<string> {
+  const err = await res.json().catch(() => ({}));
+  return err?.error?.message || `HTTP ${res.status}`;
+}
+
+// One attempt: the text, or why not. `capacity` = another model may still answer; `cap` = the account itself is spent.
+async function attempt(url: string, key: string, model: string, prompt: string, o?: Opts) {
+  const res = await call(url, key, model, prompt, o);
+  if (res.ok) {
+    const data = await res.json().catch(() => ({}));
+    const text: string = data?.choices?.[0]?.message?.content || "";
+    return text ? { text } : { why: `${model}: empty completion`, capacity: true, cap: false };
   }
+  const why = await reason(res);
+  const cap = res.status === 429 && /per-day|per day/i.test(why);
+  return { why: `${model}: ${why}`, capacity: res.status === 429 || res.status >= 500, cap };
+}
 
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || "";
+export async function generateText(prompt: string, options?: Opts): Promise<string> {
+  const or = process.env.OPENROUTER_API_KEY;
+  const groq = process.env.GROQ_API_KEY;
+  if (!or && !groq) throw new Error("OPENROUTER_API_KEY not set");
+  const whys: string[] = [];
+  let capped = false;
+  if (or) {
+    for (const m of modelChain()) {
+      const r = await attempt(OPENROUTER_URL, or, m, prompt, options);
+      if (r.text) return r.text;
+      whys.push(r.why!);
+      if (r.cap) {
+        capped = true;
+        break;
+      }
+      if (!r.capacity) throw new Error(whys.join("; "));
+    }
+  }
+  if (groq) {
+    const r = await attempt(GROQ_API_URL, groq, GROQ_MODEL, prompt, options);
+    if (r.text) return r.text;
+    whys.push(`groq ${r.why}`);
+    if (!r.capacity) throw new Error(whys.join("; "));
+  }
+  if (capped || whys.length) throw new LlmBusy(whys.join("; "));
+  throw new Error("no model answered");
 }

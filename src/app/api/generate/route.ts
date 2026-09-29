@@ -1,4 +1,4 @@
-import { generateText } from "@/lib/llm";
+import { generateText, LlmBusy } from "@/lib/llm";
 import { NextRequest, NextResponse } from "next/server";
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -46,6 +46,9 @@ Format clearly with headers and markdown.`;
     return NextResponse.json({ outline: text, remaining: FREE_LIMIT - count - 1 });
   } catch (err) {
     console.error("Generation error:", err);
+    if (err instanceof LlmBusy) {
+      return NextResponse.json({ error: "The AI service is busy right now - please try again in a few minutes.", busy: true }, { status: 503 });
+    }
     return NextResponse.json({ error: "Failed to generate. Try again." }, { status: 500 });
   }
 }
